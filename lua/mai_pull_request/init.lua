@@ -13,6 +13,7 @@ M.config = {
 -- Function to set up the plugin configuration
 function M.setup(opts)
   vim.api.nvim_set_keymap("n", "<leader>pr", ":MaiGetAPIKey<CR>", { noremap = true, silent = true })
+  vim.api.nvim_set_keymap("n", "<leader>vd", ":MaiDiffToCommit<CR>", { noremap = true, silent = true })
 
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 	if M.config.create_commands then
@@ -27,7 +28,7 @@ function M.create_commands()
 	end, {})
 
 	vim.api.nvim_create_user_command("MaiDiffToCommit", function()
-		require("mai_pull_request.ui").display_staged_diff()
+		require("mai_pull_request.view_diff").view_diff()
 	end, {})
 
 	vim.api.nvim_create_user_command("MaiPRWindow", function()
