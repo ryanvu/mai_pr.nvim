@@ -1,12 +1,12 @@
 # Mai Pull Request
 
-Mai Pull Request is a Neovim plugin that helps you create and manage pull requests directly from your Neovim editor.
+Mai Pull Request is a Neovim plugin that helps you generate commit messages and pull requests directly from your Neovim editor.
 
 ## Features
 
 - Create pull requests from within Neovim
-- View diffs between branches
-- Integrates with OpenAI for intelligent PR description generation
+- View diffs of staged files
+- Integrates with OpenAI for PR description & commit message generation
 
 ## Requirements
 
