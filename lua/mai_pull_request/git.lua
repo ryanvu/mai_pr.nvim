@@ -1,5 +1,15 @@
 local M = {}
 
+local function run_command(cmd)
+	local handle = io.popen(cmd)
+	if handle then
+		local result = handle:read("*a")
+		handle:close()
+		return result
+	end
+	return nil
+end
+
 function M.get_list_branches()
 	local handle = io.popen("git branch")
 	local result = handle:read("*a")
@@ -16,16 +26,6 @@ end
 
 -- Function to get the staged diff
 function M.get_staged_diff()
-	local function run_command(cmd)
-		local handle = io.popen(cmd)
-		if handle then
-			local result = handle:read("*a")
-			handle:close()
-			return result
-		end
-		return nil
-	end
-
 	-- Check if we're in a git repository
 	local is_git_repo = run_command("git rev-parse --is-inside-work-tree 2>/dev/null")
 	if not is_git_repo or is_git_repo:match("true") == nil then
@@ -51,25 +51,23 @@ function M.get_staged_diff()
 end
 
 function M.get_diff_between_branches(base_branch, branch)
-	local function run_command(cmd)
-		local handle = io.popen(cmd)
-		if handle then
-			local result = handle:read("*a")
-			handle:close()
-			return result
-		end
-		return nil
+	local command = string.format("git diff %s %s", base_branch, branch)
+	vim.notify("Executing: " .. command)
+
+	local branch_diff, err = run_command(command)
+
+	if err then
+		vim.notify("Error getting diff: " .. err, vim.log.levels.ERROR)
+		return nil, "Error getting diff: " .. err
 	end
 
-	vim.notify("git diff " .. base_branch .. " " .. branch)
-	local branch_diff = run_command("git diff " .. base_branch .. " " .. branch)
-
 	if not branch_diff or branch_diff == "" then
-		vim.notify("No diff between branches")
+		vim.notify("No diff between branches", vim.log.levels.WARN)
 		return nil, "No diff between branches"
 	end
 
-	vim.notify(branch_diff)
+	vim.notify("Diff retrieved successfully", vim.log.levels.INFO)
+	return branch_diff
 end
 
 return M

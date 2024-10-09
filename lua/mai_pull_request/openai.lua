@@ -48,28 +48,37 @@ function M.generate_commit_message(diff)
 end
 
 function M.generate_pr_description(diff)
-	-- Similar to generate_commit_message, but tailored for PR descriptions
-	-- Implement this function as needed
-	local data = {
-		model = model,
-		messages = {
-			{
-				role = "system",
-				content = "Generate a PR Template in Markdown based off of this diff:",
-			},
-			{ role = "user", content = diff },
-		},
-		max_tokens = max_tokens,
-		temperature = temperature,
-	}
+    -- Similar to generate_commit_message, but tailored for PR descriptions
+    local data = {
+        model = model,
+        messages = {
+            {
+                role = "system",
+                content =
+                [[
+                  Generate a concise and informative Pull Request Summary in Markdown based off of attached diff.
+                  Refrain from including any code snippets in the PR description.
+                ]],
+            },
+            { role = "user", content = diff },
+        },
+        max_tokens = max_tokens,
+        temperature = temperature,
+    }
 
-	local response = make_request("chat/completions", data)
+    local success, response = pcall(make_request, "chat/completions", data)
 
-	if response and response.choices and response.choices[1] and response.choices[1].message then
-		return response.choices[1].message.content
-	else
-		return "Failed to generate commit message"
-	end
+    if not success then
+        print("Error making API request:", response)
+        return "Failed to generate PR description: API request error"
+    end
+
+    if response and response.choices and response.choices[1] and response.choices[1].message then
+        return response.choices[1].message.content
+    else
+        print("Unexpected API response structure:", vim.inspect(response))
+        return "Failed to generate PR description: Unexpected API response"
+    end
 end
 
 return M

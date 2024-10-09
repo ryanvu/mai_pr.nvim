@@ -5,14 +5,6 @@ local git = require("mai_pull_request.git")
 
 local M = {}
 
-local function get_diff_between_branches(branch1, branch2)
-	local cmd = string.format("git diff %s..%s", branch1, branch2)
-	local handle = io.popen(cmd)
-	local result = handle:read("*a")
-	handle:close()
-	return result
-end
-
 local function create_confirmation_popup()
 	local popup = Popup({
 		enter = true,
@@ -39,28 +31,28 @@ local function create_confirmation_popup()
 end
 
 local function create_pr_popup()
-  local pr_popup({
-    enter = true,
-    focusable = true,
-    border = {
-      style = "rounded",
-      text = {
-        top = "Generated Pull Request",
-        top_align = "center",
-      },
-    },
-    position = "50%",
-    size = {
-      width = "100%",
-      height = "100%",
-    },
-    buf_options = {
-      modifiable = true,
-      readonly = false,
-    },
-  })
+	local pr_popup = Popup({
+		enter = true,
+		focusable = true,
+		border = {
+			style = "rounded",
+			text = {
+				top = "Generated Pull Request",
+				top_align = "center",
+			},
+		},
+		position = "50%",
+		size = {
+			width = "70%",
+			height = "70%",
+		},
+		buf_options = {
+			modifiable = true,
+			readonly = false,
+		},
+	})
 
-  return pr_popup
+	return pr_popup
 end
 
 local function create_main_popup()
@@ -100,13 +92,13 @@ local function create_main_popup()
 		{
 			position = "50%",
 			size = {
-				width = "30%",
+				width = "40%",
 				height = "50%",
 			},
 		},
 		Layout.Box({
 			Layout.Box(left_popup, { size = "10%" }),
-			Layout.Box(right_popup, { size = "30%" }),
+			Layout.Box(right_popup, { size = "50%" }),
 		}, { dir = "col" })
 	)
 	return main_popup, left_popup, right_popup
@@ -137,7 +129,7 @@ function M.show_branches()
 		main_popup:unmount()
 	end
 
-	local show_confirmation = function(selected_branch)
+	local show_confirmation = function(selected_branch, diff)
 		M.confirmation_popup = create_confirmation_popup()
 		M.confirmation_popup:mount()
 
@@ -153,16 +145,28 @@ function M.show_branches()
 		vim.api.nvim_buf_set_lines(M.confirmation_popup.bufnr, 0, -1, false, lines)
 		vim.api.nvim_buf_set_option(M.confirmation_popup.bufnr, "modifiable", false)
 		vim.api.nvim_buf_set_option(M.confirmation_popup.bufnr, "readonly", true)
+    vim.api.nvim_buf_set_option(M.confirmation_popup.bufnr, "wrap", true)
 
 		-- Confirmation popup keymaps
 		local confirm = function()
 			close_popups()
-			local diff = get_diff_between_branches(current_branch, selected_branch)
-      local pr_popup = create_pr_popup()
-      pr_popup:mount()
-      vim.api.nvim_buf_set_lines(pr_popup.bufnr, 0, -1, false, { "Generating PR..." })
-      local generated_pr = require("mai_pull_request.view_diff").generate_pr(diff)
-      vim.api.nvim_buf_set_lines(pr_popup.bufnr, 0, -1, false, vim.split(generated_pr, "\n"))
+			local pr_popup = create_pr_popup()
+			pr_popup:mount()
+
+      pr_popup:map("n", "q", function()
+        pr_popup:unmount()
+      end, { noremap = true })
+
+			-- Show "Generating PR..." message
+			vim.api.nvim_buf_set_lines(pr_popup.bufnr, 0, -1, false, { "Generating PR..." })
+			-- Use vim.schedule to run the PR generation asynchronously
+			vim.schedule(function()
+				local generated_pr = require("mai_pull_request.openai").generate_pr_description(diff)
+				-- Set the wrapped lines in the popup
+				vim.api.nvim_buf_set_lines(pr_popup.bufnr, 0, -1, false, vim.split(generated_pr, "\n"))
+				-- Enable word wrap for the buffer
+				vim.api.nvim_buf_set_option(pr_popup.bufnr, "wrap", true)
+			end)
 		end
 
 		local cancel = function()
@@ -185,8 +189,8 @@ function M.show_branches()
 		selected_branch = selected_branch:gsub("^%* ", "")
 
 		if selected_branch ~= "" and selected_branch ~= cur_branch then
-			local diff = get_diff_between_branches(selected_branch, cur_branch)
-			show_confirmation(selected_branch)
+			local diff = git.get_diff_between_branches(selected_branch, cur_branch)
+			show_confirmation(selected_branch, diff)
 		else
 			print("Invalid selection or same as current branch")
 		end
