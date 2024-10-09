@@ -65,6 +65,9 @@ The plugin sets up the following default keymaps:
 
 You can customize these keymaps in your Neovim configuration if desired.
 
+## Screenshots
+<img width="1136" alt="Screenshot 2024-10-08 at 11 35 11 PM" src="https://github.com/user-attachments/assets/3f29a2ea-4314-404f-9145-35c142276dc0">
+
 ## Environment Variables
 
 If you prefer not to store your OpenAI API key in your configuration, you can set it as an environment variable:
