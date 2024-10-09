@@ -22,7 +22,7 @@ Add the following to your Neovim configuration:
 
 ```lua
 {
-  "ryanvu/mai_pull_request",
+  "ryanvu/mai_pr.nvim",
   config = function()
     require("mai_pull_request").setup({
       -- your configuration here
