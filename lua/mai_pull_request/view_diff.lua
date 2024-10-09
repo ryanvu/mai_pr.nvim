@@ -70,17 +70,17 @@ local function setup_keymaps(popups, main_popup)
 		silent = true,
 	})
 
-	vim.api.nvim_buf_set_keymap(popups[3].bufnr, "n", "G", "", {
-		callback = function()
-			vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, { "Generating commit message..." })
+	local on_generate = function()
+		vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, { "Generating commit message..." })
+		vim.schedule(function()
 			local diff = vim.api.nvim_buf_get_lines(popups[2].bufnr, 0, -1, false)
 			local diff_str = table.concat(diff, "\n")
 			local commit_message = require("mai_pull_request.openai").generate_commit_message(diff_str)
 			vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, vim.split(commit_message, "\n"))
-		end,
-		noremap = true,
-		silent = true,
-	})
+			vim.api.nvim_buf_set_option(popups[3].bufnr, "wrap", true)
+			vim.api.nvim_set_current_win(popups[3].winid)
+		end)
+	end
 
 	-- Set initial focus to top left popup
 	vim.api.nvim_set_current_win(popups[1].winid)
@@ -94,6 +94,7 @@ local function setup_keymaps(popups, main_popup)
 			cycle_popups(-1)
 		end, { noremap = true, silent = true })
 		popup:map("n", "q", close_popups, { noremap = true, silent = true })
+		popup:map("n", "g", on_generate, { noremap = true, silent = true })
 	end
 end
 
@@ -170,7 +171,7 @@ local function setup_events(popup)
 
 	popup:on(event.CursorMoved, highlight_current_line)
 	popup:on(event.CursorMovedI, highlight_current_line)
-  highlight_current_line()
+	highlight_current_line()
 end
 
 function M.view_diff()
@@ -179,7 +180,7 @@ function M.view_diff()
 
 	local popups = { top_left_popup, top_right_popup, bottom_popup }
 	setup_keymaps(popups, main_popup)
-  setup_events(top_left_popup)
+	setup_events(top_left_popup)
 
 	local staged_data = require("mai_pull_request.git").get_staged_diff()
 	if not staged_data then
@@ -188,6 +189,21 @@ function M.view_diff()
 		vim.api.nvim_buf_set_lines(top_left_popup.bufnr, 0, -1, false, staged_data.files)
 		display_diff(top_right_popup.bufnr, staged_data.diff)
 	end
+
+	-- Get the height of the popup
+	local popup_height = bottom_popup.win_config.height
+
+	-- Create an array of empty lines to fill the buffer
+	local empty_lines = {}
+	for _ = 1, popup_height - 1 do
+		table.insert(empty_lines, "")
+	end
+
+	-- Add the message as the last line
+	table.insert(empty_lines, "Press 'g' to generate commit message")
+
+	-- Set all the lines at once
+	vim.api.nvim_buf_set_lines(bottom_popup.bufnr, 0, -1, false, empty_lines)
 end
 
 return M
