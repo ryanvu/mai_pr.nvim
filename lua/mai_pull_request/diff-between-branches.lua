@@ -92,7 +92,7 @@ local function create_main_popup()
 		{
 			position = "50%",
 			size = {
-				width = "40%",
+				width = "50%",
 				height = "50%",
 			},
 		},
