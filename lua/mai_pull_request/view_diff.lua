@@ -72,9 +72,14 @@ local function setup_keymaps(popups, main_popup)
 
 	local on_generate = function()
 		vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, { "Generating commit message..." })
+		local diff = vim.api.nvim_buf_get_lines(popups[2].bufnr, 0, -1, false)
+		local diff_str = table.concat(diff, "\n")
+
+		if diff_str == "" then
+			vim.notify("No changes to commit", vim.log.levels.WARN)
+		end
+
 		vim.schedule(function()
-			local diff = vim.api.nvim_buf_get_lines(popups[2].bufnr, 0, -1, false)
-			local diff_str = table.concat(diff, "\n")
 			local commit_message = require("mai_pull_request.openai").generate_commit_message(diff_str)
 			vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, vim.split(commit_message, "\n"))
 			vim.api.nvim_buf_set_option(popups[3].bufnr, "wrap", true)
