@@ -77,6 +77,7 @@ local function setup_keymaps(popups, main_popup)
 
 		if diff_str == "" then
 			vim.notify("No changes to commit", vim.log.levels.WARN)
+      return
 		end
 
 		vim.schedule(function()
