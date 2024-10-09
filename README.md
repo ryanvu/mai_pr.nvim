@@ -66,7 +66,13 @@ The plugin sets up the following default keymaps:
 You can customize these keymaps in your Neovim configuration if desired.
 
 ## Screenshots
-<img width="1136" alt="Screenshot 2024-10-08 at 11 35 11 PM" src="https://github.com/user-attachments/assets/3f29a2ea-4314-404f-9145-35c142276dc0">
+<img width="1136" alt="View Diff" src="https://github.com/user-attachments/assets/3f29a2ea-4314-404f-9145-35c142276dc0">
+
+<img width="623" alt="Diff Branch Selection" src="https://github.com/user-attachments/assets/b5ad04da-6ccb-41f5-b04d-42f9b638d01b">
+
+<img width="622" alt="Generated Commit Message" src="https://github.com/user-attachments/assets/a90b2bb1-ba08-4867-91ce-87bef47d524f">
+
+<img width="1136" alt="Generated PR" src="https://github.com/user-attachments/assets/0e709595-8266-49b6-bb8f-195429ca3d37">
 
 ## Environment Variables
 
