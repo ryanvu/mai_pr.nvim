@@ -1,7 +1,28 @@
 local Layout = require("nui.layout")
 local Popup = require("nui.popup")
+local event = require("nui.utils.autocmd").event
 
 local M = {}
+
+local function display_diff(buf, diff)
+	local lines = vim.split(diff, "\n")
+	-- Clear existing content
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+	-- Apply highlighting
+	for i, line in ipairs(lines) do
+		local highlight
+		if line:match("^%+") then
+			highlight = "DiffAdd"
+		elseif line:match("^%-") then
+			highlight = "DiffDelete"
+		elseif line:match("^@@") then
+			highlight = "DiffChange"
+		else
+			highlight = "Normal"
+		end
+		vim.api.nvim_buf_add_highlight(buf, -1, highlight, i - 1, 0, -1)
+	end
+end
 
 local function setup_keymaps(popups, main_popup)
 	local current_popup_index = 1
@@ -22,6 +43,44 @@ local function setup_keymaps(popups, main_popup)
 			main_popup = nil
 		end
 	end
+
+	local function update_diff(file_buf, diff_buf, diff_win)
+		local cursor = vim.api.nvim_win_get_cursor(vim.api.nvim_get_current_win())
+		local file = vim.api.nvim_buf_get_lines(file_buf, cursor[1] - 1, cursor[1], false)[1]
+
+		-- Get the diff for the selected file
+		local diff = vim.fn.system(string.format("git diff --cached -- %s", vim.fn.shellescape(file)))
+
+		if vim.v.shell_error ~= 0 then
+			diff = "Error: Unable to get diff for " .. file
+		elseif diff == "" then
+			diff = "No changes in " .. file
+		end
+
+		vim.api.nvim_buf_set_option(diff_buf, "modifiable", true)
+		display_diff(diff_buf, diff)
+		vim.api.nvim_set_current_win(diff_win)
+	end
+
+	vim.api.nvim_buf_set_keymap(popups[1].bufnr, "n", "<CR>", "", {
+		callback = function()
+			update_diff(popups[1].bufnr, popups[2].bufnr, popups[2].winid)
+		end,
+		noremap = true,
+		silent = true,
+	})
+
+	vim.api.nvim_buf_set_keymap(popups[3].bufnr, "n", "G", "", {
+		callback = function()
+			vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, { "Generating commit message..." })
+			local diff = vim.api.nvim_buf_get_lines(popups[2].bufnr, 0, -1, false)
+			local diff_str = table.concat(diff, "\n")
+			local commit_message = require("mai_pull_request.openai").generate_commit_message(diff_str)
+			vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, vim.split(commit_message, "\n"))
+		end,
+		noremap = true,
+		silent = true,
+	})
 
 	-- Set initial focus to top left popup
 	vim.api.nvim_set_current_win(popups[1].winid)
@@ -82,7 +141,7 @@ local function create_main_popup()
 			position = "50%",
 			size = {
 				width = "80%",
-				height = "80%",
+				height = "60%",
 			},
 		},
 		Layout.Box({
@@ -90,11 +149,28 @@ local function create_main_popup()
 				Layout.Box(top_left_popup, { size = "50%" }),
 				Layout.Box(top_right_popup, { size = "50%" }),
 			}, { dir = "row", size = "30%" }),
-			Layout.Box(bottom_popup, { size = "70%" }),
+			Layout.Box(bottom_popup, { size = "50%" }),
 		}, { dir = "col" })
 	)
 
 	return main_popup, top_left_popup, top_right_popup, bottom_popup
+end
+
+local function setup_events(popup)
+	local function highlight_current_line()
+		local bufnr = popup.bufnr
+		local current_line = vim.api.nvim_win_get_cursor(popup.winid)[1] - 1
+
+		-- Clear previous highlights
+		vim.api.nvim_buf_clear_namespace(bufnr, -1, 0, -1)
+
+		-- Add highlight to the current line
+		vim.api.nvim_buf_add_highlight(bufnr, -1, "Visual", current_line, 0, -1)
+	end
+
+	popup:on(event.CursorMoved, highlight_current_line)
+	popup:on(event.CursorMovedI, highlight_current_line)
+  highlight_current_line()
 end
 
 function M.view_diff()
@@ -103,14 +179,14 @@ function M.view_diff()
 
 	local popups = { top_left_popup, top_right_popup, bottom_popup }
 	setup_keymaps(popups, main_popup)
+  setup_events(top_left_popup)
 
-	-- Setup Top Left Popup (Files Changes)
-	local staged_data = require("mai_pull_request").get_staged_diff()
+	local staged_data = require("mai_pull_request.git").get_staged_diff()
 	if not staged_data then
-		vim.nvim_buf_set_lines(top_left_popup.bufnr, 0, -1, false, { "No changes staged" })
+		vim.api.nvim_buf_set_lines(top_left_popup.bufnr, 0, -1, false, { "No changes staged" })
 	else
-    vim.notify(staged_data.files[0])
-		vim.nvim_buf_set_lines(top_left_popup.bufnr, 0, -1, false, staged_data.files)
+		vim.api.nvim_buf_set_lines(top_left_popup.bufnr, 0, -1, false, staged_data.files)
+		display_diff(top_right_popup.bufnr, staged_data.diff)
 	end
 end
 

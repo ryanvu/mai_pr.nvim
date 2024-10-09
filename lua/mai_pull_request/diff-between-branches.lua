@@ -1,6 +1,7 @@
 local Layout = require("nui.layout")
 local Popup = require("nui.popup")
 local event = require("nui.utils.autocmd").event
+local git = require("mai_pull_request.git")
 
 local M = {}
 
@@ -10,20 +11,6 @@ local function get_diff_between_branches(branch1, branch2)
 	local result = handle:read("*a")
 	handle:close()
 	return result
-end
-
-local function get_list_branches()
-	local handle = io.popen("git branch")
-	local result = handle:read("*a")
-	handle:close()
-	return vim.split(result, "\n")
-end
-
-local function get_current_branch()
-	local handle = io.popen("git branch --show-current")
-	local result = handle:read("*a")
-	handle:close()
-	return vim.split(result, "\n")
 end
 
 local function create_confirmation_popup()
@@ -49,6 +36,31 @@ local function create_confirmation_popup()
 	})
 
 	return popup
+end
+
+local function create_pr_popup()
+  local pr_popup({
+    enter = true,
+    focusable = true,
+    border = {
+      style = "rounded",
+      text = {
+        top = "Generated Pull Request",
+        top_align = "center",
+      },
+    },
+    position = "50%",
+    size = {
+      width = "100%",
+      height = "100%",
+    },
+    buf_options = {
+      modifiable = true,
+      readonly = false,
+    },
+  })
+
+  return pr_popup
 end
 
 local function create_main_popup()
@@ -101,8 +113,8 @@ local function create_main_popup()
 end
 
 function M.show_branches()
-	local current_branch = get_current_branch()
-	local branches = get_list_branches()
+	local current_branch = git.get_current_branch()
+	local branches = git.get_list_branches()
 
 	local main_popup, left_popup, right_popup = create_main_popup()
 	main_popup:mount()
@@ -129,29 +141,28 @@ function M.show_branches()
 		M.confirmation_popup = create_confirmation_popup()
 		M.confirmation_popup:mount()
 
-    local cur_branch = vim.trim(current_branch[1])
+		local cur_branch = vim.trim(current_branch[1])
 		-- Set content for confirmation popup
 		local lines = {
-      "Please confirm these are the branches you want the diff between",
+			"Please confirm these are the branches you want the diff between",
 			"",
-      "git diff " .. selected_branch .. " ---> " .. cur_branch,
+			"git diff " .. selected_branch .. " ---> " .. cur_branch,
 			"",
 			"Press Y to confirm, N to cancel",
 		}
 		vim.api.nvim_buf_set_lines(M.confirmation_popup.bufnr, 0, -1, false, lines)
-    vim.api.nvim_buf_set_option(M.confirmation_popup.bufnr, "modifiable", false)
-    vim.api.nvim_buf_set_option(M.confirmation_popup.bufnr, "readonly", true)
+		vim.api.nvim_buf_set_option(M.confirmation_popup.bufnr, "modifiable", false)
+		vim.api.nvim_buf_set_option(M.confirmation_popup.bufnr, "readonly", true)
 
 		-- Confirmation popup keymaps
 		local confirm = function()
 			close_popups()
 			local diff = get_diff_between_branches(current_branch, selected_branch)
-			vim.cmd("enew")
-			vim.api.nvim_buf_set_lines(0, 0, -1, false, vim.split(diff, "\n"))
-			vim.bo.filetype = "diff"
-			vim.bo.modifiable = false
-			vim.bo.readonly = true
-			vim.api.nvim_buf_set_name(0, string.format("Diff: %s..%s", current_branch, selected_branch))
+      local pr_popup = create_pr_popup()
+      pr_popup:mount()
+      vim.api.nvim_buf_set_lines(pr_popup.bufnr, 0, -1, false, { "Generating PR..." })
+      local generated_pr = require("mai_pull_request.view_diff").generate_pr(diff)
+      vim.api.nvim_buf_set_lines(pr_popup.bufnr, 0, -1, false, vim.split(generated_pr, "\n"))
 		end
 
 		local cancel = function()
@@ -180,7 +191,6 @@ function M.show_branches()
 			print("Invalid selection or same as current branch")
 		end
 	end
-
 	-- Bind keys
 	local maps = {
 		["<Esc>"] = close_popups,
@@ -191,14 +201,26 @@ function M.show_branches()
 	for key, func in pairs(maps) do
 		right_popup:map("n", key, func, { noremap = true })
 	end
-
 	-- Disable insert mode in both popups
 	local disable_insert = function()
 		vim.cmd("stopinsert")
 	end
+	local function highlight_current_line()
+		local bufnr = right_popup.bufnr
+		local current_line = vim.api.nvim_win_get_cursor(right_popup.winid)[1] - 1
+
+		-- Clear previous highlights
+		vim.api.nvim_buf_clear_namespace(bufnr, -1, 0, -1)
+
+		-- Add highlight to the current line
+		vim.api.nvim_buf_add_highlight(bufnr, -1, "Visual", current_line, 0, -1)
+	end
 
 	left_popup:on(event.InsertEnter, disable_insert)
 	right_popup:on(event.InsertEnter, disable_insert)
+	right_popup:on(event.CursorMoved, highlight_current_line)
+	right_popup:on(event.CursorMovedI, highlight_current_line)
+	highlight_current_line()
 end
 
 return M
