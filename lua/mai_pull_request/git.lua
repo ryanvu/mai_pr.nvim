@@ -70,4 +70,28 @@ function M.get_diff_between_branches(base_branch, branch)
 	return branch_diff
 end
 
+function M.commit_change(message)
+	local command
+
+	if #message > 1 then
+		-- For multi-line messages (verbose)
+		local message_args = {}
+		for _, line in ipairs(message) do
+			table.insert(message_args, string.format("-m '%s'", line:gsub("'", "'\\''"):gsub("%s+$", "")))
+		end
+		command = "git commit " .. table.concat(message_args, " ")
+	else
+		-- For single-line messages (non-verbose)
+		command = string.format("git commit -m '%s'", message[1]:gsub("'", "'\\''"))
+	end
+
+	local result = run_command(command)
+
+	if not result or result == "" then
+		return nil, "Failed to commit changes"
+	end
+
+	return result
+end
+
 return M

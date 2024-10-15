@@ -92,6 +92,7 @@ local function setup_keymaps(popups, main_popup)
 		end
 
 		vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, { "Generating commit message..." })
+
 		vim.schedule(function()
 			local commit_message = require("mai_pull_request.openai").generate_commit_message(diff_str)
 			vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, vim.split(commit_message, "\n"))
@@ -99,6 +100,37 @@ local function setup_keymaps(popups, main_popup)
 			vim.api.nvim_set_current_win(popups[3].winid)
 		end)
 	end
+
+	local on_commit = function()
+		local commit_message = vim.api.nvim_buf_get_lines(popups[3].bufnr, 0, -1, false)
+
+		-- Remove any empty lines from the commit message
+		local non_empty_messages = vim.tbl_filter(function(line)
+			return line and line:match("%S")
+		end, commit_message)
+
+		if #non_empty_messages == 0 then
+			vim.notify("Commit message is empty. Please enter a commit message.", vim.log.levels.WARN)
+			return
+		end
+
+		-- Check if there are any changes to commit
+		-- local status = require("mai_pull_request.git").get_status()
+		-- if status == "" then
+		-- 	vim.notify("There are no changes to commit.", vim.log.levels.WARN)
+		-- 	return
+		-- end
+
+		-- Proceed with the commit
+		local result, err = require("mai_pull_request.git").commit_changes(non_empty_messages)
+		if result then
+			vim.notify("Changes committed successfully.", vim.log.levels.INFO)
+			close_popups()
+		else
+			vim.notify("Commit failed: " .. (err or "Unknown error"), vim.log.levels.ERROR)
+		end
+	end
+
 	-- Map keys for each popup
 	for _, popup in ipairs(popups) do
 		popup:map("n", "<Tab>", function()
@@ -109,9 +141,10 @@ local function setup_keymaps(popups, main_popup)
 		end, { noremap = true, silent = true })
 		popup:map("n", "q", close_popups, { noremap = true, silent = true })
 		popup:map("n", "g", on_generate, { noremap = true, silent = true })
+		popup:map("n", "c", on_commit, { noremap = true, silent = true })
 	end
 
-  cycle_popups(0)
+	cycle_popups(0)
 end
 
 local function create_main_popup()

@@ -8,7 +8,7 @@ M.config = {
 	model = "gpt-4o-mini",
 	max_tokens = 4096,
 	temperature = 0.5,
-  verbose_commit = false
+  verbose_commit = false,
 }
 
 -- Function to set up the plugin configuration

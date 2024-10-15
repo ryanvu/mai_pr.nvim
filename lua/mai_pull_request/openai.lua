@@ -29,8 +29,13 @@ end
 function M.generate_commit_message(diff)
 	local system_message
 	if config.verbose_commit then
-		system_message =
-			"Generate a detailed and informative git commit message based on the following code diff. Include a summary and key changes:"
+		system_message = [[
+      Generate a detailed git commit message based on the following code diff. 
+      Format the message as follows:
+      - First line: A concise summary of the main change
+      - Followed by a blank line
+      - Then, a bullet point list of specific changes, each starting with a hyphen (-)
+    ]]
 	else
 		system_message = "Generate a short, concise one-line git commit message based on the following code diff:"
 	end
