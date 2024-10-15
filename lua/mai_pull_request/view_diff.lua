@@ -28,13 +28,25 @@ local function setup_keymaps(popups, main_popup)
 	local current_popup_index = 1
 
 	local function cycle_popups(direction)
+		-- Reset highlight of the current popup
+		if popups[current_popup_index] then
+			popups[current_popup_index].border:set_highlight("Normal")
+		end
+
+		-- Update the index
 		current_popup_index = current_popup_index + direction
 		if current_popup_index > #popups then
 			current_popup_index = 1
 		elseif current_popup_index < 1 then
 			current_popup_index = #popups
 		end
-		vim.api.nvim_set_current_win(popups[current_popup_index].winid)
+
+		-- Set focus to the new popup
+		local cur_popup = popups[current_popup_index]
+		vim.api.nvim_set_current_win(cur_popup.winid)
+
+		-- Update the border highlight of the new focused popup
+		cur_popup.border:set_highlight("FocusedFloatBorder")
 	end
 
 	local function close_popups()
@@ -76,7 +88,7 @@ local function setup_keymaps(popups, main_popup)
 
 		if diff_str == "" then
 			vim.notify("No changes to commit", vim.log.levels.WARN)
-      return
+			return
 		end
 
 		vim.api.nvim_buf_set_lines(popups[3].bufnr, 0, -1, false, { "Generating commit message..." })
@@ -87,10 +99,6 @@ local function setup_keymaps(popups, main_popup)
 			vim.api.nvim_set_current_win(popups[3].winid)
 		end)
 	end
-
-	-- Set initial focus to top left popup
-	vim.api.nvim_set_current_win(popups[1].winid)
-
 	-- Map keys for each popup
 	for _, popup in ipairs(popups) do
 		popup:map("n", "<Tab>", function()
@@ -102,6 +110,8 @@ local function setup_keymaps(popups, main_popup)
 		popup:map("n", "q", close_popups, { noremap = true, silent = true })
 		popup:map("n", "g", on_generate, { noremap = true, silent = true })
 	end
+
+  cycle_popups(0)
 end
 
 local function create_main_popup()
@@ -110,6 +120,10 @@ local function create_main_popup()
 		focusable = true,
 		border = {
 			style = "rounded",
+		},
+		win_options = {
+			winblend = 10,
+			winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
 		},
 	}
 
@@ -134,6 +148,11 @@ local function create_main_popup()
 	}))
 
 	local bottom_popup = Popup(vim.tbl_extend("force", popup_options, {
+		border = "rounded",
+		focusable = false,
+	}))
+
+	local bottom_inner_popup = Popup(vim.tbl_extend("force", popup_options, {
 		border = {
 			text = {
 				top = "Commit Message",
@@ -156,11 +175,14 @@ local function create_main_popup()
 				Layout.Box(top_left_popup, { size = "50%" }),
 				Layout.Box(top_right_popup, { size = "50%" }),
 			}, { dir = "row", size = "30%" }),
-			Layout.Box(bottom_popup, { size = "50%" }),
+			Layout.Box({
+				Layout.Box(bottom_inner_popup, { size = "50%" }),
+				Layout.Box(bottom_popup, { size = "10%" }),
+			}, { dir = "col", size = "60%" }),
 		}, { dir = "col" })
 	)
 
-	return main_popup, top_left_popup, top_right_popup, bottom_popup
+	return main_popup, top_left_popup, top_right_popup, bottom_popup, bottom_inner_popup
 end
 
 local function setup_events(popup)
@@ -181,10 +203,10 @@ local function setup_events(popup)
 end
 
 function M.view_diff()
-	local main_popup, top_left_popup, top_right_popup, bottom_popup = create_main_popup()
+	local main_popup, top_left_popup, top_right_popup, bottom_popup, bottom_inner_popup = create_main_popup()
 	main_popup:mount()
 
-	local popups = { top_left_popup, top_right_popup, bottom_popup }
+	local popups = { top_left_popup, top_right_popup, bottom_inner_popup }
 	setup_keymaps(popups, main_popup)
 	setup_events(top_left_popup)
 
@@ -196,20 +218,7 @@ function M.view_diff()
 		display_diff(top_right_popup.bufnr, staged_data.diff)
 	end
 
-	-- Get the height of the popup
-	local popup_height = bottom_popup.win_config.height
-
-	-- Create an array of empty lines to fill the buffer
-	local empty_lines = {}
-	for _ = 1, popup_height - 1 do
-		table.insert(empty_lines, "")
-	end
-
-	-- Add the message as the last line
-	table.insert(empty_lines, "Press 'g' to generate commit message")
-
-	-- Set all the lines at once
-	vim.api.nvim_buf_set_lines(bottom_popup.bufnr, 0, -1, false, empty_lines)
+	vim.api.nvim_buf_set_lines(bottom_popup.bufnr, 0, -1, false, { "[g] - generate commit message | [c] - commit" })
 end
 
 return M

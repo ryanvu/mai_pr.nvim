@@ -48,7 +48,6 @@ function M.generate_commit_message(diff)
 end
 
 function M.generate_pr_description(diff)
-    -- Similar to generate_commit_message, but tailored for PR descriptions
     local data = {
         model = model,
         messages = {
