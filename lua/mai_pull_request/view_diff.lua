@@ -176,7 +176,7 @@ local function create_main_popup()
 				Layout.Box(top_right_popup, { size = "50%" }),
 			}, { dir = "row", size = "30%" }),
 			Layout.Box({
-				Layout.Box(bottom_inner_popup, { size = "50%" }),
+				Layout.Box(bottom_inner_popup, { size = "90%" }),
 				Layout.Box(bottom_popup, { size = "10%" }),
 			}, { dir = "col", size = "60%" }),
 		}, { dir = "col" })
