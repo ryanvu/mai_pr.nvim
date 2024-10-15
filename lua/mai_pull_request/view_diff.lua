@@ -103,7 +103,6 @@ local function setup_keymaps(popups, main_popup)
 
 	local on_commit = function()
 		local commit_message = vim.api.nvim_buf_get_lines(popups[3].bufnr, 0, -1, false)
-
 		-- Remove any empty lines from the commit message
 		local non_empty_messages = vim.tbl_filter(function(line)
 			return line and line:match("%S")
@@ -122,7 +121,7 @@ local function setup_keymaps(popups, main_popup)
 		-- end
 
 		-- Proceed with the commit
-		local result, err = require("mai_pull_request.git").commit_changes(non_empty_messages)
+		local result, err = require("mai_pull_request.git").commit_change(non_empty_messages)
 		if result then
 			vim.notify("Changes committed successfully.", vim.log.levels.INFO)
 			close_popups()
