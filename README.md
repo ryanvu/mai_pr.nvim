@@ -45,6 +45,7 @@ require("mai_pull_request").setup({
   model = "gpt-4o-mini", -- OpenAI model to use
   max_tokens = 4096, -- Maximum number of tokens for OpenAI requests
   temperature = 0.5, -- Temperature for OpenAI requests
+  verbose_commit = false, -- Defaults to have non-verbose one-liner commit messages
 })
 ```
 
