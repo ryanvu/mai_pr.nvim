@@ -101,33 +101,75 @@ local function setup_keymaps(popups, main_popup)
 		end)
 	end
 
+	local function confirm_commit(commit_message)
+		local confirm_popup = Popup({
+			enter = true,
+			focusable = true,
+			border = {
+				style = "rounded",
+				text = {
+					top = "Confirm Commit",
+					top_align = "center",
+				},
+			},
+			zindex = 100,
+			position = "50%",
+			size = {
+				width = "90%",
+				height = "90%",
+			},
+			buf_options = {
+				modifiable = true,
+				readonly = false,
+			},
+			win_options = {
+				winblend = 10,
+				winhighlight = "Normal:Normal,FloatBorder:FloatBorder",
+			},
+		})
+
+		confirm_popup:mount()
+
+		-- Set the commit message in the popup
+		vim.api.nvim_buf_set_lines(confirm_popup.bufnr, 0, -1, false, vim.split(commit_message, "\n"))
+
+		-- Add confirmation prompt
+		local prompt = { "", "", "Do you want to commit this message? (y/n)" }
+		vim.api.nvim_buf_set_lines(confirm_popup.bufnr, -1, -1, false, prompt)
+
+		-- Set up keymaps for confirmation
+		confirm_popup:map("n", "y", function()
+			-- Perform the commit action here
+			local result, err = require("mai_pull_request.git").commit_change(vim.split(commit_message, "\n"))
+			if result then
+				vim.notify("Changes committed successfully.", vim.log.levels.INFO)
+				close_popups()
+			else
+				vim.notify("Commit failed: " .. (err or "Unknown error"), vim.log.levels.ERROR)
+			end
+			confirm_popup:unmount()
+		end, { noremap = true, silent = true })
+
+		confirm_popup:map("n", "n", function()
+			print("Commit cancelled")
+			confirm_popup:unmount()
+		end, { noremap = true, silent = true })
+
+		return confirm_popup
+	end
 	local on_commit = function()
 		local commit_message = vim.api.nvim_buf_get_lines(popups[3].bufnr, 0, -1, false)
-		-- Remove any empty lines from the commit message
+
 		local non_empty_messages = vim.tbl_filter(function(line)
 			return line and line:match("%S")
 		end, commit_message)
 
 		if #non_empty_messages == 0 then
-			vim.notify("Commit message is empty. Please enter a commit message.", vim.log.levels.WARN)
+			vim.notify("Commit message is empty. Generate a commit message first.", vim.log.levels.WARN)
 			return
 		end
 
-		-- Check if there are any changes to commit
-		-- local status = require("mai_pull_request.git").get_status()
-		-- if status == "" then
-		-- 	vim.notify("There are no changes to commit.", vim.log.levels.WARN)
-		-- 	return
-		-- end
-
-		-- Proceed with the commit
-		local result, err = require("mai_pull_request.git").commit_change(non_empty_messages)
-		if result then
-			vim.notify("Changes committed successfully.", vim.log.levels.INFO)
-			close_popups()
-		else
-			vim.notify("Commit failed: " .. (err or "Unknown error"), vim.log.levels.ERROR)
-		end
+		confirm_commit(table.concat(commit_message, "\n"))
 	end
 
 	-- Map keys for each popup
